@@ -23,7 +23,6 @@ components:
         issuer: "https://accounts.google.com"
         jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
         audiences:
-          - "${gateway_audience}"
           - 32555940559.apps.googleusercontent.com
         jwtLocations:
         - header: Authorization
@@ -32,10 +31,6 @@ components:
           valuePrefix: 'bearer '
         - header: Authorization
           valuePrefix: 'BEARER '
-servers:
-- url: ${gateway_audience}
-  x-google-endpoint:
-    allowCors: true
 x-google-api-management:
   backends:
     cloudrun_backend:

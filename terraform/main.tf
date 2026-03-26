@@ -98,8 +98,7 @@ resource "google_api_gateway_api_config" "this" {
     document {
       path = "openapi.yaml"
       contents = base64encode(templatefile("${path.module}/templates/openapi.yaml.tpl", {
-        cloud_run_url    = google_cloud_run_v2_service.this.uri
-        gateway_audience = var.gateway_url != "" ? var.gateway_url : google_api_gateway_api.this.uri
+        cloud_run_url = google_cloud_run_v2_service.this.uri
       }))
     }
   }
