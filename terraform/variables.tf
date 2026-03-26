@@ -17,6 +17,6 @@ variable "region" {
 
 variable "gateway_url" {
   type        = string
-  default     = ""
-  description = "The *.gateway.dev URL of the API gateway. Leave empty on first deploy; set after the gateway is created."
+  default     = "https://example-gateway-9am37h3n.nw.gateway.dev"
+  description = "The *.gateway.dev URL of the API gateway."
 }

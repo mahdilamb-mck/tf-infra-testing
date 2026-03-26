@@ -33,12 +33,14 @@ resource "google_discovery_engine_search_engine" "this" {
 resource "google_cloud_run_v2_service" "this" {
   name                = "example-service"
   location            = var.region
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  project             = var.project_id
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   deletion_protection = false
 
   depends_on = [google_project_service.this["run.googleapis.com"]]
 
   template {
+    session_affinity = true
     scaling {
       max_instance_count = 1
     }
