@@ -14,8 +14,11 @@ security:
 components:
   securitySchemes:
     google_id_token:
-      type: openIdConnect
-      openIdConnectUrl: "https://accounts.google.com/.well-known/openid-configuration"
+      type: oauth2
+      flows:
+        implicit:
+          authorizationUrl: ''
+          scopes: {}
       x-google-auth:
         issuer: "https://accounts.google.com"
         jwksUri: "https://www.googleapis.com/oauth2/v3/certs"

@@ -39,6 +39,9 @@ resource "google_cloud_run_v2_service" "this" {
   depends_on = [google_project_service.this["run.googleapis.com"]]
 
   template {
+    scaling {
+      max_instance_count = 1
+    }
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
 
@@ -96,7 +99,7 @@ resource "google_api_gateway_api_config" "this" {
       path = "openapi.yaml"
       contents = base64encode(templatefile("${path.module}/templates/openapi.yaml.tpl", {
         cloud_run_url    = google_cloud_run_v2_service.this.uri
-        gateway_audience = google_api_gateway_api.this.managed_service
+        gateway_audience = "https://${google_api_gateway_gateway.this.default_hostname}"
       }))
     }
   }
