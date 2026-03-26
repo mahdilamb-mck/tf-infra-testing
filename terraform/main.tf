@@ -54,7 +54,7 @@ resource "google_cloud_run_v2_service" "this" {
     }
 
     labels = {
-      datastore_ids_hash = sha256(join(",", google_discovery_engine_search_engine.this.data_store_ids))
+      datastore_ids_hash = md5(join(",", google_discovery_engine_search_engine.this.data_store_ids))
     }
   }
 
