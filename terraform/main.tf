@@ -6,6 +6,8 @@ resource "google_discovery_engine_data_store" "this" {
   content_config              = "CONTENT_REQUIRED"
   solution_types              = ["SOLUTION_TYPE_SEARCH"]
   create_advanced_site_search = false
+
+  depends_on = [google_project_service.this["discoveryengine.googleapis.com"]]
 }
 
 resource "google_discovery_engine_search_engine" "this" {
@@ -23,9 +25,12 @@ resource "google_discovery_engine_search_engine" "this" {
 }
 
 resource "google_cloud_run_v2_service" "this" {
-  name     = "example-service"
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  name                = "example-service"
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  deletion_protection = false
+
+  depends_on = [google_project_service.this["run.googleapis.com"]]
 
   template {
     containers {
@@ -57,6 +62,8 @@ resource "google_cloud_run_v2_service" "this" {
 resource "google_service_account" "api_gateway" {
   account_id   = "api-gateway-sa"
   display_name = "API Gateway Service Account"
+
+  depends_on = [google_project_service.this["iam.googleapis.com"]]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "api_gateway_invoker" {
@@ -69,6 +76,8 @@ resource "google_cloud_run_v2_service_iam_member" "api_gateway_invoker" {
 resource "google_api_gateway_api" "this" {
   provider = google-beta
   api_id   = "example-api"
+
+  depends_on = [google_project_service.this["apigateway.googleapis.com"]]
 }
 
 resource "google_api_gateway_api_config" "this" {
@@ -91,6 +100,8 @@ resource "google_api_gateway_api_config" "this" {
       google_service_account = google_service_account.api_gateway.email
     }
   }
+
+  depends_on = [google_cloud_run_v2_service_iam_member.api_gateway_invoker]
 
   lifecycle {
     create_before_destroy = true
