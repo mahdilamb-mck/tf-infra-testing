@@ -1,0 +1,105 @@
+resource "google_discovery_engine_data_store" "this" {
+  location                    = var.location
+  data_store_id               = "example-datastore"
+  display_name                = "Example Datastore"
+  industry_vertical           = "GENERIC"
+  content_config              = "CONTENT_REQUIRED"
+  solution_types              = ["SOLUTION_TYPE_SEARCH"]
+  create_advanced_site_search = false
+}
+
+resource "google_discovery_engine_search_engine" "this" {
+  engine_id     = "example-search-engine"
+  collection_id = "default_collection"
+  location      = google_discovery_engine_data_store.this.location
+  display_name  = "Example Search Engine"
+
+  data_store_ids = [google_discovery_engine_data_store.this.data_store_id]
+
+  search_engine_config {
+    search_tier    = "SEARCH_TIER_STANDARD"
+    search_add_ons = ["SEARCH_ADD_ON_LLM"]
+  }
+}
+
+resource "google_cloud_run_v2_service" "this" {
+  name     = "example-service"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+  template {
+    containers {
+      image = "us-docker.pkg.dev/cloudrun/container/hello"
+
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+
+      env {
+        name  = "VERTEX_APP_ENGINE_ID"
+        value = google_discovery_engine_search_engine.this.engine_id
+      }
+    }
+
+    labels = {
+      datastore_ids_hash = sha256(join(",", google_discovery_engine_search_engine.this.data_store_ids))
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+    ]
+  }
+}
+
+resource "google_service_account" "api_gateway" {
+  account_id   = "api-gateway-sa"
+  display_name = "API Gateway Service Account"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "api_gateway_invoker" {
+  name     = google_cloud_run_v2_service.this.name
+  location = google_cloud_run_v2_service.this.location
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.api_gateway.email}"
+}
+
+resource "google_api_gateway_api" "this" {
+  provider = google-beta
+  api_id   = "example-api"
+}
+
+resource "google_api_gateway_api_config" "this" {
+  provider     = google-beta
+  api          = google_api_gateway_api.this.api_id
+  display_name = "example-api-config"
+
+  openapi_documents {
+    document {
+      path = "openapi.yaml"
+      contents = base64encode(templatefile("${path.module}/templates/openapi.yaml.tpl", {
+        cloud_run_url    = google_cloud_run_v2_service.this.uri
+        gateway_audience = google_api_gateway_api.this.managed_service
+      }))
+    }
+  }
+
+  gateway_config {
+    backend_config {
+      google_service_account = google_service_account.api_gateway.email
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_api_gateway_gateway" "this" {
+  provider   = google-beta
+  gateway_id = "example-gateway"
+  region     = var.region
+  api_config = google_api_gateway_api_config.this.id
+}
