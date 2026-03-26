@@ -8,6 +8,12 @@ resource "google_discovery_engine_data_store" "this" {
   create_advanced_site_search = false
 
   depends_on = [google_project_service.this["discoveryengine.googleapis.com"]]
+
+  lifecycle {
+    ignore_changes = [
+      document_processing_config,
+    ]
+  }
 }
 
 resource "google_discovery_engine_search_engine" "this" {
