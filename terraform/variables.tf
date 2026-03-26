@@ -14,3 +14,9 @@ variable "region" {
   default     = "europe-west2"
   description = "The region to create resources in."
 }
+
+variable "gateway_url" {
+  type        = string
+  default     = ""
+  description = "The *.gateway.dev URL of the API gateway. Leave empty on first deploy; set after the gateway is created."
+}
