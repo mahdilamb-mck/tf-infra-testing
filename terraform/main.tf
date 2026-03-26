@@ -1,3 +1,7 @@
+data "google_project" "this" {
+  project_id = var.project_id
+}
+
 resource "google_discovery_engine_data_store" "this" {
   location                    = var.location
   data_store_id               = "example-datastore"
@@ -45,6 +49,7 @@ resource "google_cloud_run_v2_service" "this" {
   depends_on = [google_project_service.this["run.googleapis.com"]]
 
   template {
+    session_affinity = true
     scaling {
       max_instance_count = 1
     }
@@ -71,6 +76,8 @@ resource "google_cloud_run_v2_service" "this" {
   lifecycle {
     ignore_changes = [
       template[0].containers[0].image,
+      template[0].scaling,
+      scaling,
     ]
   }
 }
@@ -105,7 +112,8 @@ resource "google_api_gateway_api_config" "this" {
     document {
       path = "openapi.yaml"
       contents = base64encode(templatefile("${path.module}/templates/openapi.yaml.tpl", {
-        cloud_run_url = google_cloud_run_v2_service.this.uri
+        cloud_run_url = "https://${google_cloud_run_v2_service.this.name}-${data.google_project.this.number}.${var.region}.run.app"
+        gateway_url   = var.gateway_url
       }))
     }
   }

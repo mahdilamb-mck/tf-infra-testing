@@ -24,6 +24,7 @@ components:
         jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
         audiences:
           - 32555940559.apps.googleusercontent.com
+          - "${gateway_url}"
         jwtLocations:
         - header: Authorization
           valuePrefix: 'Bearer '
@@ -39,3 +40,7 @@ x-google-api-management:
       path_translation: APPEND_PATH_TO_ADDRESS
       protocol: http/1.1
 x-google-backend: cloudrun_backend
+servers:
+- url: "${gateway_url}"
+  x-google-endpoint:
+    allowCors: true
