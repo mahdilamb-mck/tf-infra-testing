@@ -1,0 +1,37 @@
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create backend config
+        run: |
+          cat <<EOF > ./terraform/backend.hcl
+          bucket = "${{vars.GCP_TF_STATE_BUCKET}}"
+          prefix = "terraform/state"
+          EOF
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+      - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          mkdir -p $TF_PLUGIN_CACHE_DIR
+          terraform init -input=false -backend-config=backend.hcl
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform-plugin-cache
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false -var 'project_id=${{vars.GCP_PROJECT_ID}}'
+        working-directory: ./terraform
