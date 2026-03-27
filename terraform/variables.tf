@@ -18,5 +18,6 @@ variable "region" {
 variable "gateway_url" {
   type        = string
   default     = "https://example-gateway-9am37h3n.nw.gateway.dev"
-  description = "The *.gateway.dev URL of the API gateway."
+  description = "The *.gateway.dev URL of the API gateway (used as JWT audience)."
 }
+

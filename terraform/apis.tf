@@ -6,6 +6,7 @@ resource "google_project_service" "this" {
     "servicecontrol.googleapis.com",
     "servicemanagement.googleapis.com",
     "iam.googleapis.com",
+    "compute.googleapis.com",
   ])
   service = each.value
 
