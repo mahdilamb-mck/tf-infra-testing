@@ -4,8 +4,8 @@ data "google_project" "this" {
 
 resource "google_discovery_engine_data_store" "this" {
   location                    = var.location
-  data_store_id               = "example-datastore"
-  display_name                = "Example Datastore"
+  data_store_id               = "example-datasasdfasftore"
+  display_name                = "Example Datasdfasdfdsfastore"
   industry_vertical           = "GENERIC"
   content_config              = "CONTENT_REQUIRED"
   solution_types              = ["SOLUTION_TYPE_SEARCH"]
