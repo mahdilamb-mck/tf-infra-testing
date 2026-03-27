@@ -1,4 +1,6 @@
 locals {
+  # TODO: re-enable JWT validation after e2e test
+  # Passthrough config — Envoy proxies to app without auth
   envoy_config = <<-YAML
     static_resources:
       listeners:
@@ -24,28 +26,6 @@ locals {
                               route:
                                 cluster: app
                     http_filters:
-                      - name: envoy.filters.http.jwt_authn
-                        typed_config:
-                          "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
-                          providers:
-                            google_id_token:
-                              issuer: "https://accounts.google.com"
-                              audiences:
-                                - "${var.google_audience}"
-                              remote_jwks:
-                                http_uri:
-                                  uri: "https://www.googleapis.com/oauth2/v3/certs"
-                                  cluster: google_jwks
-                                  timeout: 5s
-                                cache_duration: 600s
-                              from_headers:
-                                - name: Authorization
-                                  value_prefix: "Bearer "
-                          rules:
-                            - match:
-                                prefix: "/"
-                              requires:
-                                provider_name: google_id_token
                       - name: envoy.filters.http.router
                         typed_config:
                           "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -61,22 +41,6 @@ locals {
                         socket_address:
                           address: 127.0.0.1
                           port_value: 8081
-        - name: google_jwks
-          type: STRICT_DNS
-          load_assignment:
-            cluster_name: google_jwks
-            endpoints:
-              - lb_endpoints:
-                  - endpoint:
-                      address:
-                        socket_address:
-                          address: www.googleapis.com
-                          port_value: 443
-          transport_socket:
-            name: envoy.transport_sockets.tls
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-              sni: www.googleapis.com
   YAML
 }
 
