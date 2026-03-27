@@ -1,3 +1,13 @@
+# Remove old API Gateway NEG from state without destroying it in GCP.
+# The backend service update will detach it, then it can be deleted manually.
+removed {
+  from = google_compute_region_network_endpoint_group.api_gateway
+
+  lifecycle {
+    destroy = false
+  }
+}
+
 resource "google_compute_global_address" "this" {
   name = "example-lb-ip"
 
