@@ -4,15 +4,13 @@ resource "google_compute_global_address" "this" {
   depends_on = [google_project_service.this["compute.googleapis.com"]]
 }
 
-resource "google_compute_region_network_endpoint_group" "api_gateway" {
-  provider              = google-beta
-  name                  = "example-api-gateway-neg"
+resource "google_compute_region_network_endpoint_group" "cloud_run" {
+  name                  = "example-cloud-run-neg"
   network_endpoint_type = "SERVERLESS"
   region                = var.region
 
-  serverless_deployment {
-    platform = "apigateway.googleapis.com"
-    resource = google_api_gateway_gateway.this.gateway_id
+  cloud_run {
+    service = google_cloud_run_v2_service.this.name
   }
 
   depends_on = [google_project_service.this["compute.googleapis.com"]]
@@ -22,9 +20,10 @@ resource "google_compute_backend_service" "this" {
   name                  = "example-backend-service"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTPS"
+  security_policy       = google_compute_security_policy.this.id
 
   backend {
-    group = google_compute_region_network_endpoint_group.api_gateway.id
+    group = google_compute_region_network_endpoint_group.cloud_run.id
   }
 }
 

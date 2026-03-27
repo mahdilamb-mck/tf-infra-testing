@@ -15,9 +15,9 @@ variable "region" {
   description = "The region to create resources in."
 }
 
-variable "gateway_url" {
+variable "google_audience" {
   type        = string
-  default     = "https://example-gateway-9am37h3n.nw.gateway.dev"
-  description = "The *.gateway.dev URL of the API gateway (used as JWT audience)."
+  default     = "32555940559.apps.googleusercontent.com"
+  description = "The expected audience claim for Google ID tokens."
 }
 
