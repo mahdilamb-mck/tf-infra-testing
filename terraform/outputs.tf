@@ -3,7 +3,7 @@ output "gateway_url" {
   description = "The *.gateway.dev URL of the API gateway."
 }
 
-output "load_balancer_ip" {
-  value       = google_compute_global_address.this.address
-  description = "The static IP address of the load balancer."
-}
+# output "load_balancer_ip" {
+#   value       = google_compute_global_address.this.address
+#   description = "The static IP address of the load balancer."
+# }
