@@ -5,11 +5,11 @@ resource "google_service_account" "cloud_run" {
   depends_on = [google_project_service.this["iam.googleapis.com"]]
 }
 
-resource "google_project_iam_member" "cloud_run_discovery_engine" {
-  project = var.project_id
-  role    = "roles/discoveryengine.viewer"
-  member  = "serviceAccount:${google_service_account.cloud_run.email}"
-}
+# resource "google_project_iam_member" "cloud_run_discovery_engine" {
+#   project = var.project_id
+#   role    = "roles/discoveryengine.viewer"
+#   member  = "serviceAccount:${google_service_account.cloud_run.email}"
+# }
 
 resource "google_cloud_run_v2_service" "this" {
   name                = "example-service"
