@@ -20,7 +20,7 @@ resource "google_compute_backend_service" "this" {
   name                  = "example-backend-service"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTPS"
-  security_policy       = google_compute_security_policy.this.id
+  # security_policy = google_compute_security_policy.this.id
 
   backend {
     group = google_compute_region_network_endpoint_group.cloud_run.id
