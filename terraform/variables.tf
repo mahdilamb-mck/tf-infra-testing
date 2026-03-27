@@ -14,10 +14,3 @@ variable "region" {
   default     = "europe-west2"
   description = "The region to create resources in."
 }
-
-variable "google_audience" {
-  type        = string
-  default     = "32555940559.apps.googleusercontent.com"
-  description = "The expected audience claim for Google ID tokens."
-}
-
