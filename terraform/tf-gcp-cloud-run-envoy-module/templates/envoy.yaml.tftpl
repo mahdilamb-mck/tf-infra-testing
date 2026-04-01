@@ -1,0 +1,190 @@
+static_resources:
+  clusters:
+    - name: backend_service
+      type: ${backend_cluster_type}
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: backend_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: ${backend_host}
+                      port_value: ${backend_port}
+    - name: okta
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          sni: ${okta_domain}
+      load_assignment:
+        cluster_name: okta
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: ${okta_domain}
+                      port_value: 443
+    - name: metadata_server
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: metadata_server
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: metadata.google.internal
+                      port_value: 80
+
+  listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: ${port}
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                      log_format:
+                        json_format:
+                          severity: "%RESPONSE_CODE_DETAILS%"
+                          httpRequest:
+                            requestMethod: "%REQ(:METHOD)%"
+                            requestUrl: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                            requestSize: "%BYTES_RECEIVED%"
+                            status: "%RESPONSE_CODE%"
+                            responseSize: "%BYTES_SENT%"
+                            userAgent: "%REQ(USER-AGENT)%"
+                            remoteIp: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
+                            serverIp: "%UPSTREAM_HOST%"
+                            latency: "%DURATION%ms"
+                            protocol: "%PROTOCOL%"
+                          timestamp: "%START_TIME(%Y-%m-%dT%H:%M:%S.%fZ)%"
+                          logging.googleapis.com/trace: "projects/%DYNAMIC_METADATA(envoy.filters.http.lua:gcp_project)%/traces/%DYNAMIC_METADATA(envoy.filters.http.lua:trace_id)%"
+                          logging.googleapis.com/spanId: "%DYNAMIC_METADATA(envoy.filters.http.lua:span_id)%"
+                          logging.googleapis.com/trace_sampled: "%DYNAMIC_METADATA(envoy.filters.http.lua:trace_sampled)%"
+                          "logging.googleapis.com/sourceLocation":
+                            function: "envoy.filters.network.http_connection_manager"
+                          message: "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %RESPONSE_CODE% %DURATION%ms"
+                          resource:
+                            type: "cloud_run_revision"
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: backend_service
+                            auto_host_rewrite: false
+                http_filters:
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        okta:
+                          issuer: https://${okta_domain}/oauth2/${okta_auth_server_id}
+                          audiences:
+                            - "${okta_audience}"
+                          remote_jwks:
+                            http_uri:
+                              uri: https://${okta_domain}/oauth2/${okta_auth_server_id}/v1/keys
+                              cluster: okta
+                              timeout: 5s
+                            cache_duration: 600s
+                          forward: false
+                          forward_payload_header: x-jwt-payload
+                      rules:
+                        - match:
+                            prefix: /
+                          requires:
+                            provider_name: okta
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      inline_code: |
+                        local cached_project = nil
+
+                        function get_project(request_handle)
+                          if cached_project then
+                            return cached_project
+                          end
+
+                          local project = "${gcp_project}"
+                          if project ~= "" then
+                            cached_project = project
+                            return cached_project
+                          end
+
+                          local headers, body = request_handle:httpCall(
+                            "metadata_server",
+                            {
+                              [":method"] = "GET",
+                              [":path"] = "/computeMetadata/v1/project/project-id",
+                              [":authority"] = "metadata.google.internal",
+                              ["Metadata-Flavor"] = "Google",
+                            },
+                            "",
+                            1000
+                          )
+                          if body and body ~= "" then
+                            cached_project = body
+                          else
+                            cached_project = ""
+                          end
+                          return cached_project
+                        end
+
+                        function envoy_on_request(request_handle)
+                          local project = get_project(request_handle)
+                          request_handle:streamInfo():dynamicMetadata():set("envoy.filters.http.lua", "gcp_project", project)
+
+                          local header = request_handle:headers():get("x-cloud-trace-context")
+                          if header == nil then
+                            return
+                          end
+
+                          local trace_id, span_id, sampled
+
+                          -- format: TRACE_ID/SPAN_ID;o=SAMPLED
+                          local slash = header:find("/")
+                          if slash then
+                            trace_id = header:sub(1, slash - 1)
+                            local rest = header:sub(slash + 1)
+                            local semi = rest:find(";")
+                            if semi then
+                              span_id = rest:sub(1, semi - 1)
+                              local o = rest:find("o=")
+                              if o then
+                                sampled = rest:sub(o + 2) == "1"
+                              end
+                            else
+                              span_id = rest
+                            end
+                          else
+                            trace_id = header
+                          end
+
+                          request_handle:streamInfo():dynamicMetadata():set("envoy.filters.http.lua", "trace_id", trace_id or "")
+                          request_handle:streamInfo():dynamicMetadata():set("envoy.filters.http.lua", "span_id", span_id or "")
+                          request_handle:streamInfo():dynamicMetadata():set("envoy.filters.http.lua", "trace_sampled", sampled or false)
+                        end
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
